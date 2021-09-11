@@ -18,6 +18,7 @@ In no particular order:
 * Dependency injection, such as providing a requirements.txt
 * Try It Yourself! functionality where a user can download their snippet with boilerplate to use locally
 * Expiration of old executions, probably based off time since last view
+* Link-back feature which will see referrers and link back to them
 
 ## Will Not Implement
 

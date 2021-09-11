@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: pycodebench
+  version: 1.0.0
+  description: Provides an API for submitting code to be benchmarked and retreiving/managing results.
+  contact:
+    name: Caesar Kabalan
+    email: caesar.kabalan@gmail.com
+  license:
+    name: GNU General Public License v3.0 or later
+    url: https://www.gnu.org/licenses/gpl-3.0.txt
+x-amazon-apigateway-policy:
+  Version: '2012-10-17'
+  Statement:
+    - Effect: Allow
+      Principal: '*'
+      Action: execute-api:Invoke
+      Resource:
+        - Fn::Sub: 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*'
+servers:
+  - url: https://to_be_completed.execute-api.us-east-1.amazonaws.com/v1
+    description: API Endpoint
+paths:
+  /$default:
+    options:
+      description: CORS Support
+      tags:
+        - CORS Responses
+      responses:
+        200:
+          description: Default CORS Response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+          content: {}
+      x-amazon-apigateway-integration:
+        type: mock
+        passthroughBehavior: when_no_match
+        requestTemplates:
+          application/json: '{"statusCode":200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type'''
+              method.response.header.Access-Control-Allow-Methods: '''*'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+  /benchmark:
+    post:
+      description: Submits a request to execute a new benchmark
+      tags:
+        - Benchmark
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkSubmission'
+      responses:
+        201:
+          description: Benchmark submission created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkSubmissionSuccessful'
+        400:
+          description: Invalid Benchmark Configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidBenchmarkConfiguration'
+      x-amazon-apigateway-integration:
+        type: 'AWS_PROXY'
+        httpMethod: 'POST'
+        uri:
+          Fn::Sub: 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BenchmarkPostID.Arn}/invocations'
+        responses:
+          default:
+            statusCode: 200
+  /benchmark/{id}:
+    get:
+      description: Returns the benchmark results corresponding to the ID
+      tags:
+        - Benchmark
+      parameters:
+        - name: id
+          in: path
+          description: ID of the benchmark to retrieve
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkResults'
+        400:
+          description: Invalid Benchmark ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidBenchmarkID'
+        404:
+          description: Benchmark Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkNotFound'
+      x-amazon-apigateway-integration:
+        type: 'AWS_PROXY'
+        httpMethod: 'POST'
+        uri:
+          Fn::Sub: 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BenchmarkGetID.Arn}/invocations'
+        responses:
+          default:
+            statusCode: 200
+components:
+  schemas:
+    BenchmarkResults:
+      type: object
+      required:
+        - id
+        - code
+        - execution_parameters
+        - results
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        execution_parameters:
+          $ref: '#/components/schemas/ExecutionParameters'
+        results:
+          type: object
+          properties:
+            loops:
+              type: string
+            total_time:
+              type: string
+            error_message:
+              type: string
+      example:
+        id: 9f02f36f-c350-4913-8616-54712338079f
+        code: '"-".join(str(n) for n in range(100))'
+        execution_parameters:
+          python_version: '3.7'
+        results:
+          loops: '100000000'
+          total_time: "4510"
+    BenchmarkSubmission:
+      type: object
+      required:
+        - code
+        - execution_parameters
+      properties:
+        code:
+          type: string
+        execution_parameters:
+          $ref: '#/components/schemas/ExecutionParameters'
+      example:
+        code: '"-".join(str(n) for n in range(100))'
+        execution_parameters:
+          python_version: '3.7'
+    ExecutionParameters:
+      type: object
+      required:
+        - python_version
+      properties:
+        python_version:
+          type: string
+      example:
+        python_version: '3.7'
+    BenchmarkSubmissionSuccessful:
+      type: object
+      required:
+        - id
+        - message
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+      example:
+        id: 9f02f36f-c350-4913-8616-54712338079f
+        message: The benchmark response was successfully submitted.
+    InvalidBenchmarkConfiguration:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      example:
+        message: The benchmark configuration is invalid. Verify the execution parameters are compatible.
+    InvalidBenchmarkID:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      example:
+        message: The benchmark ID was an invalid format. It should be a UUID.
+    BenchmarkNotFound:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+      example:
+        message: The benchmark was not found. Verify your Benchmark ID or link is correct.
+
